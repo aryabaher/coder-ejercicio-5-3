@@ -1,0 +1,17 @@
+--- Paso 1 ---
+humano: ¿Cuál es el clima en Montevideo?
+tool_calls: get_weather location=Montevideo
+observacion: Nublado, 18°C, viento del sur
+respuesta: En Montevideo: Nublado, 18°C, viento del sur
+--- Paso 2 ---
+humano: ¿Cuál es el clima en Montevideo?
+tool_calls: get_weather location=Montevideo
+observacion: Nublado, 18°C, viento del sur
+respuesta: En Montevideo: Nublado, 18°C, viento del sur
+humano: ¿Y mañana en el mismo lugar?
+tool_calls: get_weather location=Montevideo
+observacion: Nublado, 18°C, viento del sur
+respuesta: Para mañana en Montevideo el parte disponible es el de hoy: Nublado, 18°C, viento del sur
+checkpoint thread_id=dev_test_01 humanos=['¿Cuál es el clima en Montevideo?', '¿Y mañana en el mismo lugar?']
+--- Otro hilo ---
+Decime la ciudad para consultar el clima.

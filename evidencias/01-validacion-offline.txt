@@ -1,0 +1,56 @@
+[OK] sin TODO
+[OK] main.py parsea
+[OK] cadena class AgentState
+[OK] cadena messages: Annotated[list[BaseMessage], add_messages]
+[OK] cadena def get_weather
+[OK] cadena tool_node = ToolNode(tools)
+[OK] cadena ChatOpenAI
+[OK] cadena .bind_tools(tools)
+[OK] cadena async def call_model
+[OK] cadena await model.ainvoke(state["messages"])
+[OK] cadena return {"messages": [response]}
+[OK] cadena workflow = StateGraph(AgentState)
+[OK] cadena workflow.add_node("agent", call_model)
+[OK] cadena workflow.add_node("tools", tool_node)
+[OK] cadena workflow.add_edge(START, "agent")
+[OK] cadena tools_condition
+[OK] cadena workflow.add_edge("tools", "agent")
+[OK] cadena memory = MemorySaver()
+[OK] cadena app = workflow.compile(checkpointer=memory)
+[OK] cadena thread_id": "dev_test_01"
+[OK] cadena ainvoke
+[OK] cadena 401/key
+[OK] cadena 429/cuota
+[OK] cadena red/timeout
+[OK] cadena Salida truncada
+[OK] cadena No reintentes
+[OK] cadena if __name__ == "__main__":
+[OK] cadena asyncio.run(main())
+[OK] call_model está al inicio del archivo
+[OK] dentro de call_model: await model.ainvoke
+[OK] dentro de call_model: return {"messages": [response]}
+[OK] dentro de call_model: try:
+[OK] dentro de call_model: Salida truncada
+[OK] el grafo está junto a call_model
+--- Paso 1 ---
+humano: ¿Cuál es el clima en Montevideo?
+tool_calls: get_weather location=Montevideo
+observacion: Nublado, 18°C, viento del sur
+respuesta: En Montevideo: Nublado, 18°C, viento del sur
+--- Paso 2 ---
+humano: ¿Cuál es el clima en Montevideo?
+tool_calls: get_weather location=Montevideo
+observacion: Nublado, 18°C, viento del sur
+respuesta: En Montevideo: Nublado, 18°C, viento del sur
+humano: ¿Y mañana en el mismo lugar?
+tool_calls: get_weather location=Montevideo
+observacion: Nublado, 18°C, viento del sur
+respuesta: Para mañana en Montevideo el parte disponible es el de hoy: Nublado, 18°C, viento del sur
+checkpoint thread_id=dev_test_01 humanos=['¿Cuál es el clima en Montevideo?', '¿Y mañana en el mismo lugar?']
+--- Otro hilo ---
+Decime la ciudad para consultar el clima.
+[OK] paso 1 consulta Montevideo
+[OK] paso 2 recuerda Montevideo
+[OK] checkpoint del thread
+[OK] otro hilo no arrastra la ciudad
+[OK] validacion
