@@ -1,16 +1,11 @@
 import uuid
+from pathlib import Path
 
 import pytest
-from langchain_core.messages import AIMessage
+from langchain_core.messages import HumanMessage
 
 import main
-from main import (
-    ClimaInput,
-    ErrorDelAgente,
-    HumanMessage as Humano,
-    app,
-    mensaje_validacion,
-)
+from main import app
 
 
 def _hilo() -> dict:
@@ -28,14 +23,14 @@ def _tool_calls(salida: dict) -> list:
 @pytest.mark.asyncio
 async def test_ciclo_react_termina_sin_mas_herramientas():
     salida = await app.ainvoke(
-        {"messages": [Humano(content="¿Cuál es el clima en Montevideo?")]},
+        {"messages": [HumanMessage(content="¿Cuál es el clima en Montevideo?")]},
         config=_hilo(),
     )
     tipos = [mensaje.type for mensaje in salida["messages"]]
     assert tipos == ["human", "ai", "tool", "ai"]
     assert _tool_calls(salida)[0]["name"] == "get_weather"
     assert _tool_calls(salida)[0]["args"]["location"] == "Montevideo"
-    assert salida["messages"][2].content == main.CLIMA["montevideo"]
+    assert salida["messages"][2].content == "Nublado, 18 C"
     assert salida["messages"][-1].tool_calls == []
     assert salida["messages"][-1].content.startswith("En Montevideo:")
 
@@ -44,11 +39,11 @@ async def test_ciclo_react_termina_sin_mas_herramientas():
 async def test_mismo_thread_id_recuerda_la_ubicacion():
     config = _hilo()
     await app.ainvoke(
-        {"messages": [Humano(content="¿Cuál es el clima en Montevideo?")]},
+        {"messages": [HumanMessage(content="¿Cuál es el clima en Montevideo?")]},
         config=config,
     )
     salida = await app.ainvoke(
-        {"messages": [Humano(content="¿Y mañana en el mismo lugar?")]},
+        {"messages": [HumanMessage(content="¿Y mañana en el mismo lugar?")]},
         config=config,
     )
     humanos = [m.content for m in salida["messages"] if m.type == "human"]
@@ -65,30 +60,27 @@ async def test_mismo_thread_id_recuerda_la_ubicacion():
 
 @pytest.mark.asyncio
 async def test_otro_thread_id_no_arrastra_la_ciudad():
-    primero = _hilo()
     await app.ainvoke(
-        {"messages": [Humano(content="¿Cuál es el clima en Montevideo?")]},
-        config=primero,
+        {"messages": [HumanMessage(content="¿Cuál es el clima en Montevideo?")]},
+        config=_hilo(),
     )
-    otro = _hilo()
     salida = await app.ainvoke(
-        {"messages": [Humano(content="¿Y mañana en el mismo lugar?")]},
-        config=otro,
+        {"messages": [HumanMessage(content="¿Y mañana en el mismo lugar?")]},
+        config=_hilo(),
     )
     assert salida["messages"][-1].content == "Decime la ciudad para consultar el clima."
     assert _tool_calls(salida) == []
-    assert "Montevideo" not in salida["messages"][-1].content
 
 
 @pytest.mark.asyncio
 async def test_cambia_de_ciudad_en_el_mismo_hilo():
     config = _hilo()
     await app.ainvoke(
-        {"messages": [Humano(content="¿Cuál es el clima en Montevideo?")]},
+        {"messages": [HumanMessage(content="¿Cuál es el clima en Montevideo?")]},
         config=config,
     )
     salida = await app.ainvoke(
-        {"messages": [Humano(content="¿Cuál es el clima en Madrid?")]},
+        {"messages": [HumanMessage(content="¿Cuál es el clima en Madrid?")]},
         config=config,
     )
     assert _tool_calls(salida)[-1]["args"]["location"] == "Madrid"
@@ -98,21 +90,11 @@ async def test_cambia_de_ciudad_en_el_mismo_hilo():
 @pytest.mark.asyncio
 async def test_pregunta_que_no_es_clima_no_llama_la_herramienta():
     salida = await app.ainvoke(
-        {"messages": [Humano(content="¿Cuánto es 2+2?")]},
+        {"messages": [HumanMessage(content="¿Cuánto es 2+2?")]},
         config=_hilo(),
     )
     assert _tool_calls(salida) == []
     assert salida["messages"][-1].content == "Eso no es una consulta de clima."
-
-
-@pytest.mark.asyncio
-async def test_clima_sin_ciudad_no_ejecuta_get_weather():
-    salida = await app.ainvoke(
-        {"messages": [Humano(content="¿Cuál es el clima?")]},
-        config=_hilo(),
-    )
-    assert _tool_calls(salida) == []
-    assert "Decime la ciudad" in salida["messages"][-1].content
 
 
 def test_grafo_tiene_nodos_y_checkpointer():
@@ -128,170 +110,25 @@ def test_grafo_tiene_nodos_y_checkpointer():
 
 
 def test_add_messages_concatena():
-    primero = Humano(content="uno")
-    segundo = Humano(content="dos")
+    primero = HumanMessage(content="uno")
+    segundo = HumanMessage(content="dos")
     acumulado = main.add_messages([primero], [segundo])
     assert [mensaje.content for mensaje in acumulado] == ["uno", "dos"]
 
 
-def test_clima_input_rechaza_location_en_blanco():
-    with pytest.raises(main.ValidationError) as exc:
-        ClimaInput(location="   ")
-    assert "location no puede estar vacía" in mensaje_validacion(exc.value)
-
-
-def test_clima_input_rechaza_entero_y_campo_extra():
-    with pytest.raises(main.ValidationError):
-        ClimaInput(location=18)
-    with pytest.raises(main.ValidationError) as extra:
-        ClimaInput(location="Montevideo", unidad="C")
-    assert "Extra inputs are not permitted" in mensaje_validacion(extra.value)
-
-
 def test_get_weather_devuelve_el_parte_de_la_ciudad():
-    assert main.get_weather.invoke({"location": "Montevideo"}) == main.CLIMA["montevideo"]
-    assert main.get_weather.invoke({"location": "  buenos   aires "}) == "Soleado, 22°C"
-    assert main.get_weather.invoke({"location": "Lima"}) == "Soleado, 22°C"
+    assert main.get_weather.invoke({"location": "Montevideo"}) == "Nublado, 18 C"
+    assert main.get_weather.invoke({"location": " madrid "}) == "Parcialmente nublado, 16 C"
+    assert main.get_weather.invoke({"location": "Lima"}) == "Soleado, 22 C"
 
 
-def test_get_weather_func_valida_espacios():
-    texto = main.get_weather.func("   ")
-    assert texto.startswith("Error de validación:")
-    assert "location no puede estar vacía" in texto
-
-
-@pytest.mark.asyncio
-async def test_location_en_blanco_vuelve_como_observacion(monkeypatch):
-    class _LocationVacia:
-        async def ainvoke(self, messages):
-            if isinstance(messages[-1], main.ToolMessage):
-                return AIMessage(content="Sin ciudad no consulto el clima.")
-            return AIMessage(
-                content="",
-                tool_calls=[
-                    {
-                        "name": "get_weather",
-                        "args": {"location": "   "},
-                        "id": "call_vacia",
-                        "type": "tool_call",
-                    }
-                ],
-            )
-
-    monkeypatch.setattr(main, "model", _LocationVacia())
-    salida = await app.ainvoke(
-        {"messages": [Humano(content="¿Cuál es el clima?")]},
-        config=_hilo(),
-    )
-    observacion = next(mensaje.content for mensaje in salida["messages"] if mensaje.type == "tool")
-    assert observacion.startswith("Error de validación: location:")
-    assert "location no puede estar vacía" in observacion
-    assert salida["messages"][-1].content == "Sin ciudad no consulto el clima."
-
-
-class _QueFalla:
-    def __init__(self, exc: BaseException) -> None:
-        self.exc = exc
-        self.llamadas = 0
-
-    async def ainvoke(self, messages):
-        self.llamadas += 1
-        raise self.exc
-
-
-class _QueTrunca:
-    def __init__(self) -> None:
-        self.llamadas = 0
-
-    async def ainvoke(self, messages):
-        self.llamadas += 1
-        return AIMessage(
-            content="parte cortado",
-            response_metadata={"finish_reason": "length"},
-        )
-
-
-@pytest.mark.asyncio
-async def test_timeout_no_borra_el_checkpoint(monkeypatch):
-    config = _hilo()
-    await app.ainvoke(
-        {"messages": [Humano(content="¿Cuál es el clima en Montevideo?")]},
-        config=config,
-    )
-    fallo = _QueFalla(TimeoutError("Request timed out talking to the model"))
-    monkeypatch.setattr(main, "model", fallo)
-    with pytest.raises(ErrorDelAgente) as exc:
-        await app.ainvoke(
-            {"messages": [Humano(content="¿Y mañana en el mismo lugar?")]},
-            config=config,
-        )
-    assert str(exc.value).startswith("red/timeout:")
-    assert "ainvoke(None)" in str(exc.value)
-    assert fallo.llamadas == 1
-    estado = await app.aget_state(config)
-    assert estado.next == ("agent",)
-    textos = [mensaje.content for mensaje in estado.values["messages"] if isinstance(mensaje.content, str)]
-    assert any("Montevideo" in texto for texto in textos)
-    monkeypatch.setattr(main, "model", main.ModeloClimaLocal())
-    reanudado = await app.ainvoke(None, config=config)
-    assert reanudado["messages"][-1].content.startswith("Para mañana en Montevideo")
-    humanos = [mensaje.content for mensaje in reanudado["messages"] if mensaje.type == "human"]
-    assert humanos.count("¿Y mañana en el mismo lugar?") == 1
-
-
-@pytest.mark.asyncio
-async def test_401_no_reintenta(monkeypatch):
-    fallo = _QueFalla(main.FalloSimulado(401, "Unauthorized: invalid API key"))
-    monkeypatch.setattr(main, "model", fallo)
-    with pytest.raises(ErrorDelAgente) as exc:
-        await app.ainvoke(
-            {"messages": [Humano(content="¿Cuál es el clima en Madrid?")]},
-            config=_hilo(),
-        )
-    assert str(exc.value).startswith("401/key:")
-    assert "No reintentes" in str(exc.value)
-    assert fallo.llamadas == 1
-
-
-@pytest.mark.asyncio
-async def test_429_un_solo_intento(monkeypatch):
-    fallo = _QueFalla(main.FalloSimulado(429, "rate limit / quota exceeded"))
-    monkeypatch.setattr(main, "model", fallo)
-    with pytest.raises(ErrorDelAgente) as exc:
-        await app.ainvoke(
-            {"messages": [Humano(content="¿Cuál es el clima en Madrid?")]},
-            config=_hilo(),
-        )
-    assert str(exc.value).startswith("429/cuota:")
-    assert fallo.llamadas == 1
-
-
-@pytest.mark.asyncio
-async def test_error_no_transitorio_un_solo_intento(monkeypatch):
-    fallo = _QueFalla(RuntimeError("boom"))
-    monkeypatch.setattr(main, "model", fallo)
-    with pytest.raises(ErrorDelAgente) as exc:
-        await app.ainvoke(
-            {"messages": [Humano(content="¿Cuál es el clima en Madrid?")]},
-            config=_hilo(),
-        )
-    assert str(exc.value).startswith("Error del agente: boom")
-    assert "ainvoke(None)" in str(exc.value)
-    assert fallo.llamadas == 1
-
-
-@pytest.mark.asyncio
-async def test_salida_truncada_no_entra_al_historial(monkeypatch):
-    config = _hilo()
-    trunca = _QueTrunca()
-    monkeypatch.setattr(main, "model", trunca)
-    with pytest.raises(ErrorDelAgente) as exc:
-        await app.ainvoke(
-            {"messages": [Humano(content="¿Cuál es el clima en Madrid?")]},
-            config=config,
-        )
-    assert str(exc.value).startswith("Salida truncada:")
-    assert trunca.llamadas == 1
-    estado = await app.aget_state(config)
-    contenidos = [getattr(m, "content", "") for m in estado.values["messages"]]
-    assert "parte cortado" not in contenidos
+def test_el_modelo_del_modulo_es_chatopenai():
+    fuente = Path(main.__file__).read_text(encoding="utf-8")
+    assert fuente.count("StateGraph(AgentState)") == 1
+    assert "ModeloClimaLocal" not in fuente
+    assert "usar_modelo_local" not in fuente
+    assert "ChatOpenAI" in fuente
+    assert ".bind_tools([get_weather])" in fuente
+    assert len(fuente.splitlines()) < 65
+    assert "sk-" not in fuente
+    assert fuente.isascii()

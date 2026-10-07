@@ -1,17 +1,81 @@
---- Paso 1 ---
-humano: ¿Cuál es el clima en Montevideo?
-tool_calls: get_weather location=Montevideo
-observacion: Nublado, 18°C, viento del sur
-respuesta: En Montevideo: Nublado, 18°C, viento del sur
---- Paso 2 ---
-humano: ¿Cuál es el clima en Montevideo?
-tool_calls: get_weather location=Montevideo
-observacion: Nublado, 18°C, viento del sur
-respuesta: En Montevideo: Nublado, 18°C, viento del sur
-humano: ¿Y mañana en el mismo lugar?
-tool_calls: get_weather location=Montevideo
-observacion: Nublado, 18°C, viento del sur
-respuesta: Para mañana en Montevideo el parte disponible es el de hoy: Nublado, 18°C, viento del sur
-checkpoint thread_id=dev_test_01 humanos=['¿Cuál es el clima en Montevideo?', '¿Y mañana en el mismo lugar?']
---- Otro hilo ---
+[OK] sin TODO
+[OK] un solo StateGraph
+[OK] sin usar_modelo_local
+[OK] main.py corto (menos de 65 lineas)
+[OK] sin clave de API por defecto
+[OK] demo imprime el historial
+[OK] main.py solo ASCII
+[OK] main.py parsea
+[OK] cadena class AgentState
+[OK] cadena messages: Annotated[list[BaseMessage], add_messages]
+[OK] cadena def get_weather
+[OK] cadena @tool
+[OK] cadena tool_node = ToolNode([get_weather])
+[OK] cadena ChatOpenAI
+[OK] cadena .bind_tools([get_weather])
+[OK] cadena async def agent
+[OK] cadena await model.ainvoke(state["messages"])
+[OK] cadena return {"messages": [response]}
+[OK] cadena workflow = StateGraph(AgentState)
+[OK] cadena workflow.add_node("agent", agent)
+[OK] cadena workflow.add_node("tools", tool_node)
+[OK] cadena workflow.add_edge(START, "agent")
+[OK] cadena tools_condition
+[OK] cadena workflow.add_edge("tools", "agent")
+[OK] cadena memory = MemorySaver()
+[OK] cadena app = workflow.compile(checkpointer=memory)
+[OK] cadena thread_id": "sesion_01"
+[OK] cadena thread_id": "sesion_02"
+[OK] cadena ainvoke
+[OK] cadena if __name__ == "__main__":
+[OK] cadena asyncio.run(main())
+[OK] agent está al inicio del archivo
+[OK] dentro de agent: ainvoke
+[OK] dentro de agent: return {"messages": [response]}
+[OK] main no redefine el grafo
+[OK] main no pisa el modelo
+[OK] main usa sesion_01
+[OK] main usa sesion_02
+--- sesion_01: 8 mensajes en el checkpoint ---
+================================ Human Message =================================
+
+Cual es el clima en Montevideo?
+================================== Ai Message ==================================
+Tool Calls:
+  get_weather (call_1aabe0701fad)
+ Call ID: call_1aabe0701fad
+  Args:
+    location: Montevideo
+================================= Tool Message =================================
+Name: get_weather
+
+Nublado, 18 C
+================================== Ai Message ==================================
+
+En Montevideo: Nublado, 18 C
+================================ Human Message =================================
+
+Y manana en el mismo lugar?
+================================== Ai Message ==================================
+Tool Calls:
+  get_weather (call_101fb7be8698)
+ Call ID: call_101fb7be8698
+  Args:
+    location: Montevideo
+================================= Tool Message =================================
+Name: get_weather
+
+Nublado, 18 C
+================================== Ai Message ==================================
+
+Para mañana en Montevideo el parte disponible es el de hoy: Nublado, 18 C
+--- sesion_02: 2 mensajes en el checkpoint ---
+================================ Human Message =================================
+
+Y manana en el mismo lugar?
+================================== Ai Message ==================================
+
 Decime la ciudad para consultar el clima.
+[OK] el hilo sesion_01 recuerda Montevideo
+[OK] el hilo sesion_02 no arrastra la ciudad
+[OK] validacion
